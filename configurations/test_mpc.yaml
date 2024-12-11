@@ -1,5 +1,6 @@
 mpc_params:
   N: 10
+  N_full_order: 3
   Tf: 0.8
   qp_solver: OSQP
   max_iter: 100
@@ -8,7 +9,27 @@ mpc_params:
   print_level: 1
 model_params:
   urdf_path: "/home/zolkin/AmberLab/Project-Locomotion-MPC/locomotion-mpc/configurations/robots/g1_full.urdf"
-  contact_frames: ["right_toe"]
+  foot_frames: ["left_toe", "left_heel", "right_toe", "right_heel"]
+  locked_joints: ["left_ankle_roll_joint", "right_ankle_roll_joint",
+           "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
+           "left_wrist_roll_joint", "left_wrist_pitch_joint", "left_wrist_yaw_joint",
+           "left_hand_thumb_0_joint", "left_hand_thumb_1_joint", "left_hand_thumb_2_joint",
+           "left_hand_middle_0_joint", "left_hand_middle_1_joint",
+           "left_hand_index_0_joint", "left_hand_index_1_joint",
+           "right_wrist_roll_joint", "right_wrist_pitch_joint", "right_wrist_yaw_joint",
+           "right_hand_thumb_0_joint", "right_hand_thumb_1_joint", "right_hand_thumb_2_joint",
+           "right_hand_middle_0_joint", "right_hand_middle_1_joint",
+           "right_hand_index_0_joint", "right_hand_index_1_joint",]
+  locked_defaults: [0, 0,
+           0, 0, 0.03,
+           0, 0, 0,
+           0, 1, 1,
+           0, 0,
+           0, 0,
+           0, 0, 0,
+           0, -1, -1,
+           0, 0,
+           0, 0,]
 cost_params:
   cost_list: ["costs"]
 constraint_params:

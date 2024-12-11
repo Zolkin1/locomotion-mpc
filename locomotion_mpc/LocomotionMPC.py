@@ -1,8 +1,9 @@
 
+import numpy as np
 import yaml
 
-from acados_template import AcadosOcp, AcadosOcpSolver
-from kiwisolver import Constraint
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosMultiphaseOcp, AcadosModel
+from casadi import SX, vertcat
 
 from locomotion_mpc.robot_model.robot_model import RobotModel, RobotSettings
 from locomotion_mpc.cost import Cost, CostSettings
@@ -13,6 +14,7 @@ class MpcSettings:
         with open(yaml_path, 'r') as file:
             yaml_settings = yaml.safe_load(file)
             self.N = yaml_settings['mpc_params']['N']
+            self.N_full_order = yaml_settings['mpc_params']['N_full_order']
             self.Tf = yaml_settings['mpc_params']['Tf']
             self.qp_solver = yaml_settings['mpc_params']['qp_solver']
             self.max_iter = yaml_settings['mpc_params']['max_iter']
@@ -35,17 +37,26 @@ class LocomotionMPC:
         self._settings = mpc_settings
         self._settings.print()
 
-        self._ocp = AcadosOcp()
+        self._robot_model = robot_model
+        self._cost = cost
+        self._constraints = constraints
 
-        # Dynamics
-        self._ocp.model = robot_model.create_acados_model(self._ocp.model)
+        self._robot_model.print()
 
-        # Cost
-        self._ocp.cost = cost.create_acados_cost()
+        N_list = [self._settings.N_full_order, 1, self._settings.N - self._settings.N_full_order]
+        self._ocp = AcadosMultiphaseOcp(N_list)
 
-        # Constraints
-        self._ocp.constraints = constraints.create_acados_constraints()
-        self._ocp.model = constraints.create_acados_constraints_casadi(self._ocp.model)
+        # Full order MPC phase
+        full_order = self.CreateFullOrderOCP()
+        self._ocp.set_phase(full_order, 0)
+
+        # Transition
+        transition = self.CreateTransitionOCP()
+        self._ocp.set_phase(transition, 1)
+
+        # Centroidal
+        centroidal = self.CreateCentroidalOCP()
+        self._ocp.set_phase(centroidal, 2)
 
         # Solver Settings
         self.assign_settings()
@@ -82,6 +93,66 @@ class LocomotionMPC:
     # TODO: Add a function to solve from the current state (passed in)
     # TODO: Add a function to plot the COM traj to start to verify it
     # TODO: Formulate the multi-model problem using the multi-phase OCP in Acados (https://docs.acados.org/python_interface/index.html#acados-multi-phase-ocp)
+    # TODO: Try using pinocchio with the meshcat viewer to visualize the results
+
+    def CreateFullOrderOCP(self) -> AcadosOcp:
+        """Create the OCP for the full order dynamics model."""
+        ocp = AcadosOcp()
+
+        # Dynamics
+        ocp.model = self._robot_model.create_full_order_acados_model(ocp.model)
+
+        # Cost
+        ocp.cost = self._cost.create_full_order_acados_cost()
+
+        # Constraints
+        ocp.constraints = self._constraints.create_full_order_acados_constraints()
+        ocp.model = self._constraints.create_full_order_acados_constraints_casadi(ocp.model)
+
+        return ocp
+
+    def CreateTransitionOCP(self) -> AcadosOcp:
+        """Create the OCP for the transition stage."""
+        model = AcadosModel()
+
+        model.name = "transition_model"
+
+        q = SX.sym('q', self._robot_model.pin_model.nq)
+        v = SX.sym('v', self._robot_model.pin_model.nv)
+        model.x = vertcat(q, v)
+        x_size = model.x.size()[0]
+
+        model.disc_dyn_expr = vertcat(q, v[:6])     # The centroidal model uses the joint velocities as inputs, not states
+
+        # Create the OCP
+        ocp = AcadosOcp()
+
+        ocp.model = model
+
+        # TODO: Not entirely sure what I should use for the cost
+        #   For now making the cost have 0's
+        ocp.cost.cost_type = 'NONLINEAR_LS'
+        ocp.model.cost_y_expr = ocp.model.x
+        ocp.cost.W = np.zeros((x_size, x_size))
+        ocp.cost.yref = np.zeros((x_size, 1))
+
+        return ocp
+
+    def CreateCentroidalOCP(self) -> AcadosOcp:
+        """Create the OCP for the centroidal dynamics model."""
+        ocp = AcadosOcp()
+
+        # Dynamics
+        ocp.model = self._robot_model.create_centroidal_acados_model(ocp.model)
+
+        # Cost
+        ocp.cost = self._cost.create_centroidal_acados_cost()
+
+        # Constraints
+        ocp.constraints = self._constraints.create_centroidal_acados_constraints()
+        ocp.model = self._constraints.create_centroidal_acados_constraints_casadi(ocp.model)
+
+        return ocp
 
 def create_mpc_from_yaml(yaml_path: str) -> LocomotionMPC:
     settings = MpcSettings(yaml_path)

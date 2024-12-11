@@ -11,14 +11,24 @@ class Constraints:
     def __init__(self, constraint_settings: ConstraintSettings):
         self._cost_settings = constraint_settings
 
-    def create_acados_constraints(self) -> AcadosOcpConstraints:
+    def create_full_order_acados_constraints(self) -> AcadosOcpConstraints:
         # TODO: Implement
         acados_constraints = AcadosOcpConstraints()
         return acados_constraints
 
-    def create_acados_constraints_casadi(self, model: AcadosModel) -> AcadosModel:
+    def create_full_order_acados_constraints_casadi(self, model: AcadosModel) -> AcadosModel:
         # TODO: Implement
         return model
+
+    def create_centroidal_acados_constraints(self) -> AcadosOcpConstraints:
+        # TODO: Implement
+        acados_constraints = AcadosOcpConstraints()
+        return acados_constraints
+
+    def create_centroidal_acados_constraints_casadi(self, model: AcadosModel):
+        # TODO: Implement
+        acados_constraints = AcadosOcpConstraints()
+        return acados_constraints
 
     # TODO: Implement all the different constraints, have them be chosen in the yaml
     # TODO: Differentiate between foot frames and other contact frames

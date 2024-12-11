@@ -81,6 +81,7 @@ class LocomotionMPC:
     # TODO: Add a function to update the contact schedule parameters
     # TODO: Add a function to solve from the current state (passed in)
     # TODO: Add a function to plot the COM traj to start to verify it
+    # TODO: Formulate the multi-model problem using the multi-phase OCP in Acados (https://docs.acados.org/python_interface/index.html#acados-multi-phase-ocp)
 
 def create_mpc_from_yaml(yaml_path: str) -> LocomotionMPC:
     settings = MpcSettings(yaml_path)

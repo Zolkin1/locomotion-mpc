@@ -1,0 +1,15 @@
+mpc_params:
+  N: 10
+  Tf: 0.8
+  qp_solver: OSQP
+  max_iter: 100
+  hessian_approx: GAUSS_NEWTON
+  integrator_type: ERK
+  print_level: 1
+model_params:
+  urdf_path: "/home/zolkin/AmberLab/Project-Locomotion-MPC/locomotion-mpc/configurations/robots/g1_full.urdf"
+  contact_frames: ["right_toe"]
+cost_params:
+  cost_list: ["costs"]
+constraint_params:
+  constraint_list: ["constraints"]

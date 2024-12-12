@@ -116,8 +116,10 @@ class Cost:
 
         if "config_tracking" in self._cost_settings.cost_types:
             weights = self._cost_settings.cost_weights[self._cost_settings.cost_types.index('config_tracking')]
-            acados_cost.W[:self._nq, :self._nq] = np.diag(weights)
+            acados_cost.W[self._cost_idx: self._cost_idx + self._nq, self._cost_idx:self._cost_idx+self._nq] = np.diag(weights)
             acados_model.cost_y_expr = casadi.vertcat(acados_model.cost_y_expr, acados_model.x[:self._nq])
+            acados_cost.yref[self._cost_idx:self._cost_idx + self._nq] = np.array([1, 0])
+            self._cost_idx += self._nq
 
     def assign_casadi_to_list(self, casadi_expr_list, casadi_expr):
         for expr in casadi_expr:
@@ -133,17 +135,17 @@ class Cost:
             if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('force_reg')]) != 3:
                 raise ValueError("[Cost] Force weights do not match robot model!")
         self.nfoot_frames = len(robot_model._settings.foot_frames)
-        self._robot_mass = pinocchio.computeTotalMass(robot_model.pin_model)
+        self._robot_mass = 1 #pinocchio.computeTotalMass(robot_model.pin_model)
 
         if "velocity_tracking" in self._cost_settings.cost_types:
-            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('velocity_tracking')]) != robot_model.pin_model.nv:
+            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('velocity_tracking')]) != robot_model.nv:
                 raise ValueError("[Cost] Velocity tracking weights do not match robot model!")
-        self._nv = robot_model.pin_model.nv
+        self._nv = robot_model.nv
 
         if "config_tracking" in self._cost_settings.cost_types:
-            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('config_tracking')]) != robot_model.pin_model.nq:
+            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('config_tracking')]) != robot_model.nq:
                 raise ValueError("[Cost] Configuration tracking weights do not match robot model!")
-        self._nq = robot_model.pin_model.nq
+        self._nq = robot_model.nq
 
         self._cost_sizes = [self._ntorque, self._nf*self.nfoot_frames, self._nv, self._nq]
 

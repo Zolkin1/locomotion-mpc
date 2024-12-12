@@ -16,7 +16,8 @@ class MpcSettings:
             self.N_full_order = yaml_settings['mpc_params']['N_full_order']
             self.Tf = yaml_settings['mpc_params']['Tf']
             self.qp_solver = yaml_settings['mpc_params']['qp_solver']
-            self.max_iter = yaml_settings['mpc_params']['max_iter']
+            self.max_iter_qp = yaml_settings['mpc_params']['max_iter_qp']
+            self.max_iter_nlp = yaml_settings['mpc_params']['max_iter_nlp']
             self.hessian_approx = yaml_settings['mpc_params']['hessian_approx']
             self.integrator_type = yaml_settings['mpc_params']['integrator_type']
             self.print_level = yaml_settings['mpc_params']['print_level']
@@ -26,70 +27,77 @@ class MpcSettings:
         print(f"\tN: {self.N}")
         print(f"\tTf: {self.Tf}")
         print(f"\tqp_solver: {self.qp_solver}")
-        print(f"\tmax_iter: {self.max_iter}")
+        print(f"\tmax_iter_nlp: {self.max_iter_nlp}")
+        print(f"\tmax_iter_qp: {self.max_iter_qp}")
 
 class LocomotionMPC:
     """
     Locomotion MPC class designed to create and manage an AcadosOCP object, the robot model, and the constraints
     """
     def __init__(self, mpc_settings: MpcSettings, robot_model: RobotModel, cost: Cost, constraints: Constraints) -> None:
-        self._settings = mpc_settings
-        self._settings.print()
+        self.settings = mpc_settings
+        self.settings.print()
 
+        # TODO: Make a robot model for each model and make the constraints based on those
         self._robot_model = robot_model
         self._cost = cost
         self._constraints = constraints
 
-        self._robot_model.print()
+        # self._robot_model.print()
         self._cost.print()
 
         self._cost.verify_sizes(self._robot_model)
+        self._constraints.verify_sizes(self._robot_model)
 
-        N_list = [self._settings.N_full_order, 1, self._settings.N - self._settings.N_full_order]
+        N_list = [self.settings.N_full_order, 1, self.settings.N - self.settings.N_full_order]
         # self._ocp = AcadosMultiphaseOcp(N_list)
 
         # Full order MPC phase
         full_order = self.CreateFullOrderOCP()
         # self._ocp.set_phase(full_order, 0)
 
-        # Transition
-        transition = self.CreateTransitionOCP()
-        # self._ocp.set_phase(transition, 1)
-
-        # Centroidal
-        centroidal = self.CreateCentroidalOCP()
-        # self._ocp.set_phase(centroidal, 2)
+        # # Transition
+        # transition = self.CreateTransitionOCP()
+        # # self._ocp.set_phase(transition, 1)
+        #
+        # # Centroidal
+        # centroidal = self.CreateCentroidalOCP()
+        # # self._ocp.set_phase(centroidal, 2)
 
         # Solver Settings
         # self.assign_settings()
-        full_order.solver_options.N_horizon = self._settings.N
-        full_order.solver_options.tf = self._settings.Tf
-        full_order.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
+        full_order.solver_options.N_horizon = self.settings.N
+        full_order.solver_options.tf = self.settings.Tf
+        full_order.solver_options.nlp_solver_max_iter = self.settings.max_iter_nlp
+        # full_order.solver_options.qp_solver = "FULL_CONDENSING_DAQP" #"FULL_CONDENSING_DAQP" "PARTIAL_CONDENSING_QPDUNES" "FULL_CONDENSING_QPOASES" #"PARTIAL_CONDENSING_OSQP"
+        full_order.solver_options.nlp_solver_type = "SQP" #"SQP" #"SQP_RTI"
+        full_order.solver_options.qp_solver_iter_max = self.settings.max_iter_qp
 
         # Create the solver
         # self._ocp_solver = AcadosOcpSolver(self._ocp)
-        self._ocp_solver = AcadosOcpSolver(full_order, build=False)
+        self.ocp_solver = AcadosOcpSolver(full_order)
+        # self.ocp_solver.options_set("qp_print_level", 4)
 
     def assign_settings(self):
-        self._ocp.solver_options.N_horizon = self._settings.N
-        self._ocp.solver_options.tf = self._settings.Tf
+        self._ocp.solver_options.N_horizon = self.settings.N
+        self._ocp.solver_options.tf = self.settings.Tf
 
-        self._ocp.solver_options.max_iter = self._settings.max_iter
-        self._ocp.solver_options.hessian_approx = self._settings.hessian_approx
-        self._ocp.solver_options.integrator_type = self._settings.integrator_type
-        self._ocp.solver_options.print_level = self._settings.print_level
+        self._ocp.solver_options.nlp_solver_max_iter = self.settings.max_iter_nlp
+        self._ocp.solver_options.hessian_approx = self.settings.hessian_approx
+        self._ocp.solver_options.integrator_type = self.settings.integrator_type
+        self._ocp.solver_options.print_level = self.settings.print_level
 
-        if self._settings.qp_solver == 'OSQP':
+        if self.settings.qp_solver == 'OSQP':
             self._ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_OSQP"
-        elif self._settings.qp_solver == 'QPOASES':
+        elif self.settings.qp_solver == 'QPOASES':
             self._ocp.solver_options.qp_solver = "FULL_CONDENSING_QPOASES"
-        elif self._settings.qp_solver == 'QPDUNES':
+        elif self.settings.qp_solver == 'QPDUNES':
             self._ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_QPDUNES"
-        elif self._settings.qp_solver == 'DAQP':
+        elif self.settings.qp_solver == 'DAQP':
             self._ocp.solver_options.qp_solver = "FULL_CONDENSING_DAQP"
-        elif self._settings.qp_solver == 'FULL_HPIPM':
+        elif self.settings.qp_solver == 'FULL_HPIPM':
             self._ocp.solver_options.qp_solver = "FULL_CONDENSING_HPIPM"
-        elif self._settings.qp_solver == 'PARTIAL_HPIPM':
+        elif self.settings.qp_solver == 'PARTIAL_HPIPM':
             self._ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
         else:
             raise Exception("Invalid QP solver!")
@@ -102,10 +110,19 @@ class LocomotionMPC:
     # TODO: Try using pinocchio with the meshcat viewer to visualize the results
 
     def solve_ocp(self):
-        status = self._ocp_solver.solve()
-        self._ocp_solver.print_statistics()
+        status = self.ocp_solver.solve()
+        self.ocp_solver.print_statistics()
         print(f"status: {status}")
-        print(f"cost: {self._ocp_solver.get_cost()}")
+        print(f"cost: {self.ocp_solver.get_cost()}")
+        print(f"Total CPU time: {self.ocp_solver.get_stats('time_tot')}")
+        print(f"Linearization time: {self.ocp_solver.get_stats('time_lin')}")
+        print(f"Integrator time: {self.ocp_solver.get_stats('time_sim')}")
+        print(f"Total QP solve time: {self.ocp_solver.get_stats('time_qp')}")
+        print(f"Time inside QP solver: {self.ocp_solver.get_stats('time_qp_solver_call')}")
+        print(f"SQP iter: {self.ocp_solver.get_stats('sqp_iter')}")
+
+
+        return status
 
     def CreateFullOrderOCP(self) -> AcadosOcp:
         """Create the OCP for the full order dynamics model."""
@@ -118,53 +135,53 @@ class LocomotionMPC:
         ocp.cost = self._cost.create_full_order_acados_cost(ocp.model)
 
         # Constraints
-        ocp.constraints = self._constraints.create_full_order_acados_constraints()
+        ocp.constraints = self._constraints.create_full_order_acados_constraints(ocp.model)
         ocp.model = self._constraints.create_full_order_acados_constraints_casadi(ocp.model)
 
         return ocp
 
-    def CreateTransitionOCP(self) -> AcadosOcp:
-        """Create the OCP for the transition stage."""
-        model = AcadosModel()
+    # def CreateTransitionOCP(self) -> AcadosOcp:
+    #     """Create the OCP for the transition stage."""
+    #     model = AcadosModel()
+    #
+    #     model.name = "transition_model"
+    #
+    #     q = SX.sym('q', self._robot_model.pin_model.nq)
+    #     v = SX.sym('v', self._robot_model.pin_model.nv)
+    #     model.x = vertcat(q, v)
+    #     x_size = model.x.size()[0]
+    #     model.p_global = None
+    #     model.disc_dyn_expr = vertcat(q, v[:6])     # The centroidal model uses the joint velocities as inputs, not states
+    #
+    #     # Create the OCP
+    #     ocp = AcadosOcp()
+    #
+    #     ocp.model = model
+    #
+    #     # TODO: Not entirely sure what I should use for the cost
+    #     #   For now making the cost have 0's
+    #     ocp.cost.cost_type = 'NONLINEAR_LS'
+    #     ocp.model.cost_y_expr = ocp.model.x
+    #     ocp.cost.W = np.zeros((x_size, x_size))
+    #     ocp.cost.yref = np.zeros((x_size, 1))
+    #
+    #     return ocp
 
-        model.name = "transition_model"
-
-        q = SX.sym('q', self._robot_model.pin_model.nq)
-        v = SX.sym('v', self._robot_model.pin_model.nv)
-        model.x = vertcat(q, v)
-        x_size = model.x.size()[0]
-        model.p_global = None
-        model.disc_dyn_expr = vertcat(q, v[:6])     # The centroidal model uses the joint velocities as inputs, not states
-
-        # Create the OCP
-        ocp = AcadosOcp()
-
-        ocp.model = model
-
-        # TODO: Not entirely sure what I should use for the cost
-        #   For now making the cost have 0's
-        ocp.cost.cost_type = 'NONLINEAR_LS'
-        ocp.model.cost_y_expr = ocp.model.x
-        ocp.cost.W = np.zeros((x_size, x_size))
-        ocp.cost.yref = np.zeros((x_size, 1))
-
-        return ocp
-
-    def CreateCentroidalOCP(self) -> AcadosOcp:
-        """Create the OCP for the centroidal dynamics model."""
-        ocp = AcadosOcp()
-
-        # Dynamics
-        self._robot_model.create_centroidal_acados_model(ocp.model)
-
-        # Cost
-        ocp.cost = self._cost.create_centroidal_acados_cost(ocp.model)
-
-        # Constraints
-        ocp.constraints = self._constraints.create_centroidal_acados_constraints()
-        ocp.model = self._constraints.create_centroidal_acados_constraints_casadi(ocp.model)
-
-        return ocp
+    # def CreateCentroidalOCP(self) -> AcadosOcp:
+    #     """Create the OCP for the centroidal dynamics model."""
+    #     ocp = AcadosOcp()
+    #
+    #     # Dynamics
+    #     self._robot_model.create_centroidal_acados_model(ocp.model)
+    #
+    #     # Cost
+    #     ocp.cost = self._cost.create_centroidal_acados_cost(ocp.model)
+    #
+    #     # Constraints
+    #     ocp.constraints = self._constraints.create_centroidal_acados_constraints()
+    #     ocp.model = self._constraints.create_centroidal_acados_constraints_casadi(ocp.model)
+    #
+    #     return ocp
 
 def create_mpc_from_yaml(yaml_path: str) -> LocomotionMPC:
     settings = MpcSettings(yaml_path)

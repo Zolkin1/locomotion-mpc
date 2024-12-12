@@ -1,0 +1,25 @@
+mpc_params:
+  N: 30
+  N_full_order: 30
+  Tf: 2 #0.8
+  qp_solver: OSQP
+  max_iter_qp: 20
+  max_iter_nlp: 10
+  hessian_approx: GAUSS_NEWTON
+  integrator_type: ERK
+  print_level: 1
+model_params:
+  urdf_path: "/home/zolkin/AmberLab/Project-Locomotion-MPC/locomotion-mpc/configurations/robots/cart_pole.urdf"
+  foot_frames: ["ball"]
+cost_params:
+    - cost_type: torque_reg
+      weights: [0.001]                          # Right Arm
+#    - cost_type: force_reg
+#      weights: [0.02, 0.02, 0.001]
+    - cost_type: velocity_tracking
+      weights: [0.01, 0.05]
+    - cost_type: config_tracking
+      weights: [20, 20]
+    # TODO: Add support for terminal costs
+constraint_params:
+  constraint_list: ["constraints"]

@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 /mpc_acados/
 /.idea
+/tests/c_generated_code/
+/tests/acados_ocp.json

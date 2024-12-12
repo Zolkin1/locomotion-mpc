@@ -11,6 +11,7 @@ from locomotion_mpc.robot_model.rotation_transformations import *
 # FLOATING_BASE = 7
 FLOATING_VEL = 6
 FORCE_SIZE = 3
+GRAV = 9.81
 
 class RobotSettings:
     def __init__(self, yaml_path: str):
@@ -87,8 +88,11 @@ class RobotModel:
         self.create_integration_dynamics()
 
 
-    def create_full_order_acados_model(self, model: AcadosModel) -> AcadosModel:
-        """Create an Acados model using the full order ROM."""
+    def create_full_order_acados_model(self, model: AcadosModel):
+        """
+        Create an Acados model using the full order ROM.
+        Note that the model is modified in place.
+        """
         # States
         x = vertcat(self.q_full_order, self.v_full_order)
 
@@ -105,6 +109,13 @@ class RobotModel:
 
         f_impl = xdot - f_expl
 
+        print(self.q_full_order)
+        print(self.v_full_order)
+        print(self.F_full_order)
+        print(self.u_full_order)
+        print(self.vel_dyn_func(self.q_full_order, self.v_full_order))
+        # print(self.fd_func(self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order))
+
         # Assign to model
         model.f_impl_expr = f_impl
         model.f_expl_expr = f_expl
@@ -113,15 +124,16 @@ class RobotModel:
         model.u = u
         model.name = self.pin_model.name + "_full_order"
 
-        return model    # TODO: Do I need to return this, or is it modified in place (i.e. like a pass by reference)
-
-    def create_centroidal_acados_model(self, model: AcadosModel) -> AcadosModel:
-        """Create an Acados model using the centroidal ROM."""
+    def create_centroidal_acados_model(self, model: AcadosModel):
+        """
+        Create an Acados model using the centroidal ROM.
+        Note that the model is modified in place.
+        """
         # States
         x = vertcat(self.q_full_order, self.v_full_order[:FLOATING_VEL])
 
         # Inputs
-        u = vertcat(self.v_full_order[FLOATING_VEL:], self.F_full_order)
+        u = vertcat(self.v_full_order[-(self.pin_model.nv - FLOATING_VEL):], self.F_full_order)
 
         # xdot
         xdot = SX.sym("xdot_centroidal", self.pin_model.nq + FLOATING_VEL)
@@ -139,8 +151,6 @@ class RobotModel:
         model.u = u
         model.xdot = xdot
         model.name = self.pin_model.name + "_centroidal"
-
-        return model
 
     def create_forward_dynamics(self):
         """
@@ -165,11 +175,13 @@ class RobotModel:
     def create_integration_dynamics(self):
         """Create a casadi function giving the integration dynamics."""
         T = get_map_from_euler_zyx_deriv_to_local_angular_vel(self.q_full_order[3:6])
-        Tinv = np.linalg.inv(T)
+        Tinv = casadi.inv(T)
 
         dq = vertcat(self.v_full_order[:3],
                      Tinv @ self.v_full_order[3:6],
                      self.v_full_order[6:])
+
+        print(dq)
 
         self.vel_dyn_func = casadi.Function("vel_dynamics", [self.q_full_order, self.v_full_order], [dq], ["q", "v"], ["dq"])
 

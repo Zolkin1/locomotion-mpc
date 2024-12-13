@@ -16,13 +16,30 @@ class Constraints:
         self.nq = None
         self.nv = None
         self.nx = None
-
         self.nu = None
+
+        self.config_lb = None
+        self.config_ub = None
+        self.vel_bounds = None
+        self.torque_bounds = None
 
     def create_full_order_acados_constraints(self, acados_model: AcadosModel) -> AcadosOcpConstraints:
         # TODO: Implement
         acados_constraints = AcadosOcpConstraints()
         acados_constraints.x0 = np.zeros((self.nx,))
+
+        self.add_box_constraints(acados_constraints, True)
+
+        # Friction cone/no force
+
+        # Swing height
+
+        # Holonomic
+
+        # Collision
+
+        # Contact polytope
+
         return acados_constraints
 
     def create_full_order_acados_constraints_casadi(self, model: AcadosModel) -> AcadosModel:
@@ -44,6 +61,36 @@ class Constraints:
         self.nv = robot_model.nv
         self.nx = self.nq + self.nv
         self.nu = robot_model.full_order_torques
+
+        self.config_lb = robot_model.get_config_lb()
+        self.config_ub = robot_model.get_config_ub()
+        self.vel_bounds = robot_model.get_vel_bounds()
+        self.torque_bounds = robot_model.get_torque_bounds()
+
+        for vb in self.vel_bounds:
+            if vb < 0:
+                raise ValueError("Velocity bounds must be positive!")
+
+        for tb in self.torque_bounds:
+            if tb < 0:
+                raise ValueError("Torque bounds must be positive!")
+
+    def add_box_constraints(self, full_order: bool, acados_constraints: AcadosOcpConstraints):
+        # TODO: Adjust to not limit floating base later
+        if full_order:
+            acados_constraints.idxbx = np.array(range(self.nx))
+            acados_constraints.idxbu = np.array(range(self.nu))
+
+            acados_constraints.lbx = np.vstack([self.config_lb, -self.vel_bounds])
+            acados_constraints.ubx = np.vstack([self.config_ub, self.vel_bounds])
+
+            acados_constraints.lbu = -self.torque_bounds
+            acados_constraints.ubu = self.torque_bounds
+        else:
+            raise Exception("Not implemented!")
+
+    def add_friction_constraints(self, acados_constraints: AcadosOcpConstraints):
+        # Use casadi
 
     # TODO: Implement all the different constraints, have them be chosen in the yaml
     # TODO: Differentiate between foot frames and other contact frames

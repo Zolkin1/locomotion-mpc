@@ -88,6 +88,19 @@ class RobotModel:
         model.u = u
         model.name = "cart_pole_full_order"
 
+    def get_config_lb(self):
+        # TODO: Update to use pinocchio
+        return np.array([-10, -2])
+
+    def get_config_ub(self):
+        return np.array([10, 2])
+
+    def get_vel_bounds(self):
+        return np.array([10, 10])
+
+    def get_torque_bounds(self):
+        return np.array([10])
+
     """
     Robot Model class used for MPC.
 

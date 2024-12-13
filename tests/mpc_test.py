@@ -3,7 +3,7 @@ import numpy as np
 from locomotion_mpc.LocomotionMPC import LocomotionMPC, create_mpc_from_yaml
 from locomotion_mpc.utils import plot_pendulum
 
-print(os.environ["LD_LIBRARY_PATH"])
+# print(os.environ["LD_LIBRARY_PATH"])
 print(os.environ["ACADOS_SOURCE_DIR"])
 
 # yaml_path = "../configurations/test_mpc.yaml"

@@ -10,3 +10,7 @@ Leverages pinocchio, casadi, and acados. Written in python.
 - acados
 - casadi
 - numpy (<2 because of pinocchio)
+
+
+## Notes:
+- Need to make sure this directory is in your python path

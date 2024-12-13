@@ -69,7 +69,7 @@ class LocomotionMPC:
         full_order.solver_options.N_horizon = self.settings.N
         full_order.solver_options.tf = self.settings.Tf
         full_order.solver_options.nlp_solver_max_iter = self.settings.max_iter_nlp
-        # full_order.solver_options.qp_solver = "FULL_CONDENSING_DAQP" #"FULL_CONDENSING_DAQP" "PARTIAL_CONDENSING_QPDUNES" "FULL_CONDENSING_QPOASES" #"PARTIAL_CONDENSING_OSQP"
+        # full_order.solver_options.qp_solver = "PARTIAL_CONDENSING_OSQP" #"FULL_CONDENSING_DAQP" "PARTIAL_CONDENSING_QPDUNES" "FULL_CONDENSING_QPOASES" #"PARTIAL_CONDENSING_OSQP"
         full_order.solver_options.nlp_solver_type = "SQP" #"SQP" #"SQP_RTI"
         full_order.solver_options.qp_solver_iter_max = self.settings.max_iter_qp
 

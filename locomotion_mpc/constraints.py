@@ -28,7 +28,7 @@ class Constraints:
         acados_constraints = AcadosOcpConstraints()
         acados_constraints.x0 = np.zeros((self.nx,))
 
-        self.add_box_constraints(acados_constraints, True)
+        self.add_box_constraints(True, acados_constraints)
 
         # Friction cone/no force
 
@@ -91,6 +91,7 @@ class Constraints:
 
     def add_friction_constraints(self, acados_constraints: AcadosOcpConstraints):
         # Use casadi
+        raise Exception("Not implemented!")
 
     # TODO: Implement all the different constraints, have them be chosen in the yaml
     # TODO: Differentiate between foot frames and other contact frames

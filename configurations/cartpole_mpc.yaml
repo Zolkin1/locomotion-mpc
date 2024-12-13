@@ -14,8 +14,8 @@ model_params:
 cost_params:
     - cost_type: torque_reg
       weights: [0.001]                          # Right Arm
-#    - cost_type: force_reg
-#      weights: [0.02, 0.02, 0.001]
+    - cost_type: force_reg
+      weights: [0.02, 0.02, 0.001]
     - cost_type: velocity_tracking
       weights: [0.01, 0.05]
     - cost_type: config_tracking
@@ -23,3 +23,5 @@ cost_params:
     # TODO: Add support for terminal costs
 constraint_params:
   constraint_list: ["constraints"]
+  friction_coef: 0.6
+  friction_eps: 2

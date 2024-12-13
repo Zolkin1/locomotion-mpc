@@ -24,7 +24,7 @@ simU = np.zeros((mpc.settings.N, 1))
 for i in range(mpc.settings.N):
     simX[i, :] = mpc.ocp_solver.get(i, "x")
     # print(mpc.ocp_solver.get(i, "x"))
-    simU[i, :] = mpc.ocp_solver.get(i, "u")
+    simU[i, :] = mpc.ocp_solver.get(i, "u")[0]
     # print(mpc.ocp_solver.get(i, "u"))
 simX[mpc.settings.N, :] = mpc.ocp_solver.get(mpc.settings.N, "x")
 

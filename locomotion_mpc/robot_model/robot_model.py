@@ -34,9 +34,10 @@ class RobotModel:
         self._settings = robot_settings
 
         self.full_order_torques = 1
-        self.nf = 0 #FORCE_SIZE
+        self.nf = FORCE_SIZE
         self.nq = 2
         self.nv = 2
+        self.nfeet = 1
 
         self.q_full_order = SX.sym("q", 2)  # position, angle
         self.v_full_order = SX.sym("v", 2)  # velocity
@@ -44,12 +45,14 @@ class RobotModel:
         self.u_full_order = SX.sym("u", self.full_order_torques)
         self.F_full_order = SX.sym("F", self.nf)
 
+        self.nu = self.nf + self.full_order_torques
+
     def create_full_order_acados_model(self, model: AcadosModel):
         # States
         x = vertcat(self.q_full_order, self.v_full_order)
 
         # Inputs
-        u = self.u_full_order #vertcat(self.u_full_order, self.F_full_order)
+        u = vertcat(self.u_full_order, self.F_full_order)
 
         # xdot
         xdot = SX.sym("xdot_fo", self.nq + self.nv)
@@ -87,6 +90,9 @@ class RobotModel:
         model.xdot = xdot
         model.u = u
         model.name = "cart_pole_full_order"
+
+        # Parameters for contact schedule
+        model.p = SX.sym("p", self.nfeet)
 
     def get_config_lb(self):
         # TODO: Update to use pinocchio

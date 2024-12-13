@@ -93,6 +93,7 @@ class Cost:
                 vu_idx = self._ntorque
             for i in range(self.nfoot_frames):
                 acados_cost.W[self._cost_idx:self._cost_idx + self._nf, self._cost_idx:self._cost_idx + self._nf] = np.diag(weights)
+                # TODO: Make this desired force based on the parameters (contacts)
                 acados_cost.yref[self._cost_idx:self._cost_idx + self._nf] = [0.0, 0.0, GRAV*self._robot_mass/self.nfoot_frames]
                 acados_model.cost_y_expr = casadi.vertcat(acados_model.cost_y_expr, acados_model.u[vu_idx:vu_idx + self._nf])
                 vu_idx += self._nf

@@ -73,6 +73,9 @@ class LocomotionMPC:
         full_order.solver_options.nlp_solver_type = "SQP" #"SQP" #"SQP_RTI"
         full_order.solver_options.qp_solver_iter_max = self.settings.max_iter_qp
 
+        # Default parameters
+        full_order.parameter_values = np.zeros((robot_model.nfeet,))
+
         # Create the solver
         # self._ocp_solver = AcadosOcpSolver(self._ocp)
         self.ocp_solver = AcadosOcpSolver(full_order)

@@ -128,9 +128,9 @@ class Cost:
 
     def verify_sizes(self, robot_model: RobotModel):
         if "torque_reg" in self._cost_settings.cost_types:
-            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('torque_reg')]) != robot_model.full_order_torques:
+            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('torque_reg')]) != robot_model.ntau:
                 raise ValueError("[Cost] Torque weights do not match robot model!")
-        self._ntorque = robot_model.full_order_torques
+        self._ntorque = robot_model.ntau
 
         if "force_reg" in self._cost_settings.cost_types:
             if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('force_reg')]) != 3:

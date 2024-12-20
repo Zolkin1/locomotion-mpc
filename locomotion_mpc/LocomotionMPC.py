@@ -7,6 +7,7 @@ from casadi import SX, vertcat
 from locomotion_mpc.robot_model.robot_model import RobotModel, RobotSettings
 from locomotion_mpc.cost import Cost, CostSettings
 from locomotion_mpc.constraints import Constraints, ConstraintSettings
+from locomotion_mpc.trajectory import Trajectory
 
 class MpcSettings:
     def __init__(self, yaml_path: str):
@@ -124,8 +125,23 @@ class LocomotionMPC:
         print(f"Time inside QP solver: {self.ocp_solver.get_stats('time_qp_solver_call')}")
         print(f"SQP iter: {self.ocp_solver.get_stats('sqp_iter')}")
 
+        traj = Trajectory(self._robot_model.nq, self._robot_model.nv, self._robot_model.ntau, self._robot_model.nf, self.settings.N)
+        for i in range(self.settings.N):
+            traj.q_trajectory[i, :] = self.ocp_solver.get(i, "x")[:self._robot_model.nq]
+            # TODO: Need to parse dependent on which model I am using
+            traj.v_trajectory[i, :] = self.ocp_solver.get(i, "x")[-self._robot_model.nv:]
 
-        return status
+            traj.tau_trajectory[i, :] = self.ocp_solver.get(i, "u")[:self._robot_model.ntau]
+
+            traj.F_trajectory[i, :] = self.ocp_solver.get(i, "u")[:self._robot_model.nf]
+
+        traj.q_trajectory[self.settings.N, :] = self.ocp_solver.get(self.settings.N, "x")[:self._robot_model.nq]
+        traj.v_trajectory[self.settings.N, :] = self.ocp_solver.get(self.settings.N, "x")[-self._robot_model.nv:]
+
+        # TODO: Fill this in correctly:
+        traj.time_traj = np.linspace(0, self.settings.Tf, self.settings.N + 1)
+
+        return {status, traj}
 
     def CreateFullOrderOCP(self) -> AcadosOcp:
         """Create the OCP for the full order dynamics model."""

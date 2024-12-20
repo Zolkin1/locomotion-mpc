@@ -12,7 +12,9 @@ yaml_path = "../configurations/cartpole_mpc.yaml"
 # make an instance
 mpc = create_mpc_from_yaml(yaml_path)
 
-status = mpc.solve_ocp()
+[status, traj] = mpc.solve_ocp()
+
+print(traj.q_trajectory)
 
 if status != 0 and status != 2:
     raise Exception(f'acados returned status {status}.')
@@ -22,10 +24,12 @@ simX = np.zeros((mpc.settings.N+1, 4))
 simU = np.zeros((mpc.settings.N, 1))
 
 for i in range(mpc.settings.N):
-    simX[i, :] = mpc.ocp_solver.get(i, "x")
-    # print(mpc.ocp_solver.get(i, "x"))
-    simU[i, :] = mpc.ocp_solver.get(i, "u")[0]
-    # print(mpc.ocp_solver.get(i, "u"))
-simX[mpc.settings.N, :] = mpc.ocp_solver.get(mpc.settings.N, "x")
+    simX[i, :2] = traj.q_trajectory[i, :]
+    simX[i, -2:] = traj.v_trajectory[i, :]
 
-plot_pendulum(np.linspace(0, mpc.settings.Tf, mpc.settings.N + 1), 10, simU, simX)
+    simU[i, :] = traj.tau_trajectory[i, :]
+
+simX[mpc.settings.N, :2] = traj.q_trajectory[mpc.settings.N, :]
+simX[mpc.settings.N, -2:] = traj.v_trajectory[mpc.settings.N, :]
+
+plot_pendulum(traj.time_traj, 10, simU, simX)

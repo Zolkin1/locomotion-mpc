@@ -71,7 +71,7 @@ class Constraints:
         self.nv = robot_model.nv
         self.nx = self.nq + self.nv
         self.nu = robot_model.nu
-        self.nt = robot_model.full_order_torques
+        self.nt = robot_model.ntau
         self.nf = robot_model.nf
 
         self.n_feet = robot_model.nfeet

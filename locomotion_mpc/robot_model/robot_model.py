@@ -33,7 +33,7 @@ class RobotModel:
     def __init__(self, robot_settings: RobotSettings):
         self._settings = robot_settings
 
-        self.full_order_torques = 1
+        self.ntau = 1
         self.nf = FORCE_SIZE
         self.nq = 2
         self.nv = 2
@@ -42,10 +42,10 @@ class RobotModel:
         self.q_full_order = SX.sym("q", 2)  # position, angle
         self.v_full_order = SX.sym("v", 2)  # velocity
 
-        self.u_full_order = SX.sym("u", self.full_order_torques)
+        self.u_full_order = SX.sym("u", self.ntau)
         self.F_full_order = SX.sym("F", self.nf)
 
-        self.nu = self.nf + self.full_order_torques
+        self.nu = self.nf + self.ntau
 
     def create_full_order_acados_model(self, model: AcadosModel):
         # States

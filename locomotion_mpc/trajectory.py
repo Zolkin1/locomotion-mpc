@@ -11,40 +11,40 @@ def interpolate(t1, t2, val1, val2, t):
 
 
 class Trajectory:
-    def __init__(self):
-        self.q_trajectory = []
-        self.v_trajectory = []
-        self.tau_trajectory = []
-        self.F_trajectory = [[]]
-        self.time_traj = []
+    def __init__(self, nq, nv, ntau, nf, nt):
+        self.q_trajectory = np.zeros((nt+1, nq))
+        self.v_trajectory = np.zeros((nt+1, nv))
+        self.tau_trajectory = np.zeros((nt, ntau))
+        self.F_trajectory = np.zeros((nt, nf))
+        self.time_traj = np.zeros((nt+1,))
 
     def get_config(self, time: float) -> np.array:
         upper_idx = self.get_upper_idx(time)
         t1 = self.time_traj[upper_idx - 1]
         t2 = self.time_traj[upper_idx]
-        return interpolate(t1, t2, self.q_trajectory[upper_idx-1],
-                           self.q_trajectory[upper_idx], time)
+        return interpolate(t1, t2, self.q_trajectory[upper_idx-1,:],
+                           self.q_trajectory[upper_idx,:], time)
 
     def get_vel(self, time: float) -> np.array:
         upper_idx = self.get_upper_idx(time)
         t1 = self.time_traj[upper_idx - 1]
         t2 = self.time_traj[upper_idx]
-        return interpolate(t1, t2, self.v_trajectory[upper_idx-1],
-                           self.v_trajectory[upper_idx], time)
+        return interpolate(t1, t2, self.v_trajectory[upper_idx-1, :],
+                           self.v_trajectory[upper_idx, :], time)
 
     def get_torque(self, time: float) -> np.array:
         upper_idx = self.get_upper_idx(time)
         t1 = self.time_traj[upper_idx - 1]
         t2 = self.time_traj[upper_idx]
-        return interpolate(t1, t2, self.v_trajectory[upper_idx-1],
-                           self.v_trajectory[upper_idx], time)
+        return interpolate(t1, t2, self.v_trajectory[upper_idx-1, :],
+                           self.v_trajectory[upper_idx, :], time)
 
     def get_force(self, time: float, frame_idx: int) -> np.array:
         upper_idx = self.get_upper_idx(time)
         t1 = self.time_traj[upper_idx - 1]
         t2 = self.time_traj[upper_idx]
-        return interpolate(t1, t2, self.F_trajectory[frame_idx, upper_idx-1],
-                           self.F_trajectory[frame_idx, upper_idx], time)
+        return interpolate(t1, t2, self.F_trajectory[upper_idx-1, 3*frame_idx: 3*frame_idx+3],
+                           self.F_trajectory[upper_idx, 3*frame_idx: 3*frame_idx+3], time)
 
     def get_upper_idx(self, time: float) -> int:
         if time == self.time_traj[-1]:

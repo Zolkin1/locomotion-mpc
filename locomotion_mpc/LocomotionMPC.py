@@ -8,6 +8,7 @@ from casadi import SX, vertcat
 from locomotion_mpc.robot_model.robot_model import RobotModel, RobotSettings
 from locomotion_mpc.cost import Cost, CostSettings
 from locomotion_mpc.constraints import Constraints, ConstraintSettings
+from locomotion_mpc.trajectory import Trajectory
 
 class MpcSettings:
     def __init__(self, yaml_path: str):
@@ -35,6 +36,7 @@ class LocomotionMPC:
     """
     Locomotion MPC class designed to create and manage an AcadosOCP object, the robot model, and the constraints
     """
+    # TODO: Add the option to load or build the solver
     def __init__(self, mpc_settings: MpcSettings, robot_model: RobotModel, cost: Cost, constraints: Constraints) -> None:
         self.settings = mpc_settings
         self.settings.print()
@@ -43,6 +45,9 @@ class LocomotionMPC:
         self._robot_model = robot_model
         self._cost = cost
         self._constraints = constraints
+
+        self.psize = self.compute_parameter_size()
+        self.p = np.zeros((self.settings.N, self.psize))
 
         # self._robot_model.print()
         self._cost.print()
@@ -76,10 +81,6 @@ class LocomotionMPC:
 
         # Default parameters
         full_order.parameter_values = np.zeros((robot_model.nfeet,))
-
-        print(full_order.constraints.idxbu.shape)
-        print(full_order.constraints.ubu.shape)
-        print(full_order.constraints.lbu.shape)
 
         # Create the solver
         # self._ocp_solver = AcadosOcpSolver(self._ocp)
@@ -115,15 +116,27 @@ class LocomotionMPC:
         else:
             raise Exception("Invalid QP solver!")
 
-    # TODO: Add a function to update the cost target parameters
-    # TODO: Add a function to update the contact schedule parameters
-    # TODO: Add a function to solve from the current state (passed in)
-    # TODO: Add a function to plot the COM traj to start to verify it
+    # TODO: Add a function to plot the COM traj to start to verify it (see traj class)
     # TODO: Formulate the multi-model problem using the multi-phase OCP in Acados (https://docs.acados.org/python_interface/index.html#acados-multi-phase-ocp)
     # TODO: Try using pinocchio with the meshcat viewer to visualize the results
 
-    def solve_ocp(self):
+    def solve_ocp(self, q, v):
+        """
+        Solve the OCP given the initial condition provided.
+        Parses the result into a trajectory object and return that and the status.
+        """
+        for node in range(self.settings.N):
+            self.ocp_solver.set(node, "p", self.p[node])
+
+        x0 = np.zeros((self._robot_model.nq + self._robot_model.nv,))
+        x0[:self._robot_model.nq] = q
+        x0[-self._robot_model.nv:] = v
+
+        self.ocp_solver.set(0, "lbx", x0)
+        self.ocp_solver.set(0, "ubx", x0)
+
         status = self.ocp_solver.solve()
+
         self.ocp_solver.print_statistics()
         print(f"status: {status}")
         print(f"cost: {self.ocp_solver.get_cost()}")
@@ -134,12 +147,33 @@ class LocomotionMPC:
         print(f"Time inside QP solver: {self.ocp_solver.get_stats('time_qp_solver_call')}")
         print(f"SQP iter: {self.ocp_solver.get_stats('sqp_iter')}")
 
+        traj = Trajectory(self._robot_model.nq, self._robot_model.nv, self._robot_model.ntau, self._robot_model.nf, self.settings.N)
+        for i in range(self.settings.N):
+            traj.q_trajectory[i, :] = self.ocp_solver.get(i, "x")[:self._robot_model.nq]
+            # TODO: Need to parse dependent on which model I am using
+            traj.v_trajectory[i, :] = self.ocp_solver.get(i, "x")[-self._robot_model.nv:]
 
-        return status
+            traj.tau_trajectory[i, :] = self.ocp_solver.get(i, "u")[:self._robot_model.ntau]
+
+            traj.F_trajectory[i, :] = self.ocp_solver.get(i, "u")[:self._robot_model.nf]
+
+        traj.q_trajectory[self.settings.N, :] = self.ocp_solver.get(self.settings.N, "x")[:self._robot_model.nq]
+        traj.v_trajectory[self.settings.N, :] = self.ocp_solver.get(self.settings.N, "x")[-self._robot_model.nv:]
+
+        # TODO: Fill this in correctly:
+        traj.time_traj = np.linspace(0, self.settings.Tf, self.settings.N + 1)
+
+        # Clear the parameter variable so it can be re-filled for the next solve
+        self.p = np.zeros((self.settings.N, self.psize))
+
+        return {status, traj}
 
     def CreateFullOrderOCP(self) -> AcadosOcp:
         """Create the OCP for the full order dynamics model."""
         ocp = AcadosOcp()
+
+        # Setup the parameters
+        ocp.model.p = SX.sym("p", self.psize)
 
         # Dynamics
         self._robot_model.create_full_order_acados_model(ocp.model)
@@ -198,6 +232,68 @@ class LocomotionMPC:
 
     def get_robot_model(self):
         return self._robot_model
+
+    def update_cost_targets(self, node: int, q_des=None, v_des=None, tau_des=None, f_des=None):
+        yref = np.zeros((self._cost.get_yref_size(),))
+
+        idx = 0
+        # NOTE: The ordering here must match the ordering in the cost class otherwise the desired amount will not align
+        if "torque_reg" in self._cost._cost_settings.cost_types:
+            if tau_des is not None:
+                yref[idx:idx+self._robot_model.ntau] = tau_des
+            idx += self._robot_model.ntau
+
+        if "force_reg" in self._cost._cost_settings.cost_types:
+            if f_des is not None:
+                yref[idx:idx+self._robot_model.nf] = f_des
+            idx += self._robot_model.nf
+
+        if "velocity_tracking" in self._cost._cost_settings.cost_types:
+            if v_des is not None:
+                yref[idx:idx+self._robot_model.nv] = v_des
+            idx += self._robot_model.nv
+
+        if "config_tracking" in self._cost._cost_settings.cost_types:
+            if q_des is not None:
+                yref[idx:idx+self._robot_model.nq] = q_des
+            idx += self._robot_model.nq
+
+        self.ocp_solver.set(node, "yref", yref)
+
+    def compute_parameter_size(self):
+        """Compute the size of the parameter for each node (i.e. psize is per node)"""
+        p_size = self._robot_model.nfeet    # One parameter for each foot to signal contact state
+
+        p_size += self._robot_model.nfeet   # One parameter for the contact height for each foot
+
+        p_size += 4*self._robot_model.nfeet # Four parameters to describe the contact polytopes for each foot
+
+        return p_size
+
+    def update_contact_schedule(self, contact_schedule):
+        for node in range(self.settings.N):
+            time = self.get_time(node)
+            for i in range(self._robot_model.nfeet):
+                # Check contact state
+                if contact_schedule.in_contact(time, i):
+                    self.p[node, i] = 1
+                    # Check contact height
+                    self.p[node, i + self._robot_model.nfeet] = contact_schedule.get_contact_height(time, i)
+                    # Check the contact polytope
+                    poly_idx_start = 2*self._robot_model.nfeet + 4*i
+                    self.p[node, poly_idx_start:poly_idx_start+4] = contact_schedule.get_poly_b(time, i)
+                else:
+                    # Use the default polytope
+                    poly_idx_start = 2*self._robot_model.nfeet + 4*i
+                    self.p[node, poly_idx_start:poly_idx_start+2] = 100*np.ones((2,))
+                    poly_idx_start += 2
+                    self.p[node, poly_idx_start:poly_idx_start+2] = -100*np.ones((2,))
+
+    def get_time(self, node: int):
+        # TODO: Handle this properly if the dt's are specified differently
+        times = np.linspace(0, self.settings.Tf, self.settings.N + 1)
+
+        return times[node]
 
 def create_mpc_from_yaml(yaml_path: str) -> LocomotionMPC:
     settings = MpcSettings(yaml_path)

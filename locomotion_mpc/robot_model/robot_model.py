@@ -127,6 +127,11 @@ class RobotModel:
         # Create the full model
         full_pin_model = pinocchio.buildModelFromUrdf(settings.urdf_path, base_joint)
 
+        self.ntau = 1
+        self.nf = FORCE_SIZE
+        self.nq = 2
+        self.nv = 2
+        self.nfeet = 1
         # Lock certain joints
         q_default = pinocchio.neutral(full_pin_model)
         locked_joint_ids = []
@@ -140,6 +145,8 @@ class RobotModel:
         self.pin_model, self.collision_model, self.viz_model = pinocchio.buildReducedModel(full_pin_model, locked_joint_ids, q_default)
         self.cpin_model = cpin.Model(self.pin_model)
 
+        self.u_full_order = SX.sym("u", self.ntau)
+        self.F_full_order = SX.sym("F", self.nf)
         # Create the data
         self.pin_data = self.pin_model.createData()
         self.cpin_data = self.cpin_model.createData()
@@ -154,6 +161,7 @@ class RobotModel:
         self.nf = FORCE_SIZE * len(self._settings.foot_frames)
         self.full_order_torques = self.pin_model.nv - FLOATING_VEL   # Fully actuated except for floating base
 
+        self.nu = self.nf + self.ntau
         self.nu = self.nf + self.full_order_torques
         self.nfeet = len(settings.foot_frames)
 

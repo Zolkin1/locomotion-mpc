@@ -128,9 +128,9 @@ class Cost:
 
     def verify_sizes(self, robot_model: RobotModel):
         if "torque_reg" in self._cost_settings.cost_types:
-            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('torque_reg')]) != robot_model.full_order_torques:
+            if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('torque_reg')]) != robot_model.ntau:
                 raise ValueError("[Cost] Torque weights do not match robot model!")
-        self._ntorque = robot_model.full_order_torques
+        self._ntorque = robot_model.ntau
 
         if "force_reg" in self._cost_settings.cost_types:
             if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('force_reg')]) != 3:
@@ -150,6 +150,14 @@ class Cost:
 
         self._cost_sizes = [self._ntorque, self._nf*self.nfoot_frames, self._nv, self._nq]
 
+    def get_yref_size(self):
+        w_size = 0
+        for i in range(len(self._all_costs_types)):
+            cost_type = self._all_costs_types[i]
+            if cost_type in self._cost_settings.cost_types:
+                w_size += self._cost_sizes[i]
+
+        return w_size
 
     def print(self):
         print("MPC Cost:")

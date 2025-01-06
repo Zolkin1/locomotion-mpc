@@ -150,6 +150,14 @@ class Cost:
 
         self._cost_sizes = [self._ntorque, self._nf*self.nfoot_frames, self._nv, self._nq]
 
+    def get_yref_size(self):
+        w_size = 0
+        for i in range(len(self._all_costs_types)):
+            cost_type = self._all_costs_types[i]
+            if cost_type in self._cost_settings.cost_types:
+                w_size += self._cost_sizes[i]
+
+        return w_size
 
     def print(self):
         print("MPC Cost:")

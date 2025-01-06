@@ -91,9 +91,6 @@ class RobotModel:
         model.u = u
         model.name = "cart_pole_full_order"
 
-        # Parameters for contact schedule
-        model.p = SX.sym("p", self.nfeet)
-
     def get_config_lb(self):
         # TODO: Update to use pinocchio
         return np.array([-10, -2])

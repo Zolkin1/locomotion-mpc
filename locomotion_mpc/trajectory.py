@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def interpolate(t1, t2, val1, val2, t):
     if t > t2 or t < t1:
@@ -58,6 +58,11 @@ class Trajectory:
 
         return i
 
+    # def plot(self):
+        # 3 subplots for the configuration in general: position, orientation, joints
+        # Same 3 subplots for the velocities
+        # Each grouping of 3 force scalars gets a subplot
+        # Torques are all on the same subplot
 
     def print(self):
         print(f"q: {self.q_trajectory}")

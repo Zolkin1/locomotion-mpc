@@ -36,7 +36,7 @@ class Constraints:
 
         self.add_box_constraints(True, acados_constraints)
 
-        self.add_friction_constraints(True, acados_constraints, acados_model)
+        # self.add_friction_constraints(True, acados_constraints, acados_model)
 
         # Swing height
 

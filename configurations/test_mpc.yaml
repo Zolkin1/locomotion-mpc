@@ -1,9 +1,10 @@
 mpc_params:
   N: 10
-  N_full_order: 3
+  N_full_order: 10 #3
   Tf: 0.8
   qp_solver: OSQP
-  max_iter: 100
+  max_iter_qp: 20
+  max_iter_nlp: 10
   hessian_approx: GAUSS_NEWTON
   integrator_type: ERK
   print_level: 1
@@ -36,8 +37,8 @@ cost_params:
                 0.001, 0.001, 0.001, 0.0001, 0.001,               # Right Leg
                 0.01, 0.01, 0.01, 0.01,                           # Left Arm
                 0.01, 0.01, 0.01, 0.01,]                          # Right Arm
-    - cost_type: force_reg
-      weights: [0.02, 0.02, 0.001]
+#    - cost_type: force_reg
+#      weights: [0.02, 0.02, 0.001]
 #    - cost_type: velocity_tracking
 #      weights: [3, 3, 5,
 #                5, 5, 5,
@@ -45,13 +46,15 @@ cost_params:
 #                0.05, 3, 2, 0.01, 0.1,
 #                1, 1, 1, 1,
 #                1, 1, 1, 1]
-    - cost_type: config_tracking
-      weights: [2, 2, 15,
-                8, 8, 8,
-                0.005, 6, 4, 0.01, 1,
-                0.005, 6, 4, 0.01, 1,
-                1, 1, 1, 1,
-                1, 1, 1, 1]
+#    - cost_type: config_tracking
+#      weights: [2, 2, 15,
+#                8, 8, 8,
+#                0.005, 6, 4, 0.01, 1,
+#                0.005, 6, 4, 0.01, 1,
+#                1, 1, 1, 1,
+#                1, 1, 1, 1]
     # TODO: Add support for terminal costs
 constraint_params:
   constraint_list: ["constraints"]
+  friction_coef: 0.6
+  friction_eps: 2

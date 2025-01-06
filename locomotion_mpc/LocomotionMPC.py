@@ -1,5 +1,6 @@
 import numpy as np
 import yaml
+import time
 
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosMultiphaseOcp, AcadosModel
 from casadi import SX, vertcat
@@ -76,9 +77,18 @@ class LocomotionMPC:
         # Default parameters
         full_order.parameter_values = np.zeros((robot_model.nfeet,))
 
+        print(full_order.constraints.idxbu.shape)
+        print(full_order.constraints.ubu.shape)
+        print(full_order.constraints.lbu.shape)
+
         # Create the solver
         # self._ocp_solver = AcadosOcpSolver(self._ocp)
-        self.ocp_solver = AcadosOcpSolver(full_order)
+        start_time = time.time()
+        self.ocp_solver = AcadosOcpSolver(full_order, build=False, generate=False)
+        end_time = time.time()
+
+        time_elapsed = end_time - start_time
+        print("Acados compilation took", time_elapsed, "seconds.")
         # self.ocp_solver.options_set("qp_print_level", 4)
 
     def assign_settings(self):
@@ -185,6 +195,9 @@ class LocomotionMPC:
     #     ocp.model = self._constraints.create_centroidal_acados_constraints_casadi(ocp.model)
     #
     #     return ocp
+
+    def get_robot_model(self):
+        return self._robot_model
 
 def create_mpc_from_yaml(yaml_path: str) -> LocomotionMPC:
     settings = MpcSettings(yaml_path)

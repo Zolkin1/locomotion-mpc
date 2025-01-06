@@ -1,5 +1,6 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
+from acados_template import latexify_plot
 
 def interpolate(t1, t2, val1, val2, t):
     if t > t2 or t < t1:
@@ -65,3 +66,21 @@ class Trajectory:
         print(f"tau: {self.tau_trajectory}")
         print(f"F: {self.F_trajectory}")
         print(f"times: {self.time_traj}")
+
+    def plot(self):
+        latexify_plot()
+
+        # plt.subplot(self. + 1, 1, 1)
+        line, = plt.step(self.time_traj, self.tau_trajectory) #np.append([self.tau_trajectory[0, :]], self.tau_trajectory))
+        # if X_true_label is not None:
+        #     line.set_label(X_true_label)
+        # else:
+        #     line.set_color('r')
+        # if title is not None:
+        #     plt.title(title)
+        plt.ylabel('$u$')
+        plt.xlabel('$t$')
+        # plt.hlines(u_max, t[0], t[-1], linestyles='dashed', alpha=0.7)
+        # plt.hlines(-u_max, t[0], t[-1], linestyles='dashed', alpha=0.7)
+        # plt.ylim([-1.2 * u_max, 1.2 * u_max])
+        plt.grid()

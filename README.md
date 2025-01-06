@@ -10,6 +10,8 @@ Leverages pinocchio, casadi, and acados. Written in python.
 - acados
 - casadi
 - numpy (<2 because of pinocchio)
+- pytest
+- meshcat
 
 
 ## Notes:

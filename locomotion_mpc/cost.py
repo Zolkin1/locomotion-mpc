@@ -11,9 +11,14 @@ class CostSettings:
             yaml_settings = yaml.safe_load(file)
             self.cost_types = []
             self.cost_weights = []
+            self.cost_targets = []
             for cost_terms in yaml_settings['cost_params']:
                 self.cost_types.append(cost_terms['cost_type'])
                 self.cost_weights.append(cost_terms['weights'])
+                if 'target' in cost_terms:
+                    self.cost_targets.append(cost_terms['target'])
+                else:
+                    self.cost_targets.append([])
 
 class Cost:
     def __init__(self, cost_settings: CostSettings):
@@ -113,13 +118,15 @@ class Cost:
                 self._cost_idx += self._nv
                 acados_model.cost_y_expr = casadi.vertcat(acados_model.cost_y_expr, acados_model.x[self._nq:self._nq + FLOATING_VEL])
                 acados_model.cost_y_expr = casadi.vertcat(acados_model.cost_y_expr, acados_model.u[:FLOATING_VEL])
+                # TODO: Add a yref by reading in the target!
 
 
         if "config_tracking" in self._cost_settings.cost_types:
             weights = self._cost_settings.cost_weights[self._cost_settings.cost_types.index('config_tracking')]
             acados_cost.W[self._cost_idx: self._cost_idx + self._nq, self._cost_idx:self._cost_idx+self._nq] = np.diag(weights)
             acados_model.cost_y_expr = casadi.vertcat(acados_model.cost_y_expr, acados_model.x[:self._nq])
-            acados_cost.yref[self._cost_idx:self._cost_idx + self._nq] = np.array([1, 0])
+            # TODO: Debug this!
+            acados_cost.yref[self._cost_idx:self._cost_idx + self._nq] = self._cost_settings.cost_targets[self._cost_settings.cost_types.index('config_tracking')]
             self._cost_idx += self._nq
 
     def assign_casadi_to_list(self, casadi_expr_list, casadi_expr):
@@ -136,6 +143,7 @@ class Cost:
             if len(self._cost_settings.cost_weights[self._cost_settings.cost_types.index('force_reg')]) != 3:
                 raise ValueError("[Cost] Force weights do not match robot model!")
         self.nfoot_frames = len(robot_model._settings.foot_frames)
+        # TODO: Fix the mass!
         self._robot_mass = 1 #pinocchio.computeTotalMass(robot_model.pin_model)
 
         if "velocity_tracking" in self._cost_settings.cost_types:

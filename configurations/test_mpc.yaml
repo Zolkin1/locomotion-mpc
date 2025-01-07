@@ -6,10 +6,11 @@ mpc_params:
   max_iter_qp: 20
   max_iter_nlp: 10
   hessian_approx: GAUSS_NEWTON
-  integrator_type: ERK
+  integrator_type: ERK #IRK #ERK
   print_level: 1
 model_params:
   urdf_path: "/home/zolkin/AmberLab/Project-Locomotion-MPC/locomotion-mpc/configurations/robots/g1_full.urdf"
+  mesh_path: "/home/zolkin/AmberLab/Project-Locomotion-MPC/locomotion-mpc/configurations/robots/meshes/g1"
   foot_frames: ["left_toe", "left_heel", "right_toe", "right_heel"]
   locked_joints: ["left_ankle_roll_joint", "right_ankle_roll_joint",
            "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
@@ -20,7 +21,11 @@ model_params:
            "right_wrist_roll_joint", "right_wrist_pitch_joint", "right_wrist_yaw_joint",
            "right_hand_thumb_0_joint", "right_hand_thumb_1_joint", "right_hand_thumb_2_joint",
            "right_hand_middle_0_joint", "right_hand_middle_1_joint",
-           "right_hand_index_0_joint", "right_hand_index_1_joint",]
+           "right_hand_index_0_joint", "right_hand_index_1_joint",
+          # For debugging
+           "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
+           "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint",
+           "left_elbow_joint", "right_elbow_joint"]
   locked_defaults: [0, 0,
            0, 0, 0.03,
            0, 0, 0,
@@ -30,29 +35,40 @@ model_params:
            0, 0, 0,
            0, -1, -1,
            0, 0,
-           0, 0,]
+           0, 0,
+          # For debugging
+          0, 0, 0,
+          0, 0, 0,
+          0, 0]
 cost_params:
     - cost_type: torque_reg
       weights: [0.001, 0.001, 0.001, 0.0001, 0.001,               # Left Leg
-                0.001, 0.001, 0.001, 0.0001, 0.001,               # Right Leg
-                0.01, 0.01, 0.01, 0.01,                           # Left Arm
-                0.01, 0.01, 0.01, 0.01,]                          # Right Arm
+                0.001, 0.001, 0.001, 0.0001, 0.001,]               # Right Leg
+                 # For debgging this is commented out
+#                0.01, 0.01, 0.01, 0.01,                           # Left Arm
+#                0.01, 0.01, 0.01, 0.01,]                          # Right Arm
 #    - cost_type: force_reg
 #      weights: [0.02, 0.02, 0.001]
 #    - cost_type: velocity_tracking
 #      weights: [3, 3, 5,
 #                5, 5, 5,
 #                0.05, 3, 2, 0.01, 0.1,
-#                0.05, 3, 2, 0.01, 0.1,
+#                0.05, 3, 2, 0.01, 0.1,]
+      # For debugging
 #                1, 1, 1, 1,
 #                1, 1, 1, 1]
-#    - cost_type: config_tracking
-#      weights: [2, 2, 15,
-#                8, 8, 8,
-#                0.005, 6, 4, 0.01, 1,
-#                0.005, 6, 4, 0.01, 1,
+    - cost_type: config_tracking
+      weights: [2, 2, 15,
+                8, 8, 8,
+                0.005, 6, 4, 0.01, 1,
+                0.005, 6, 4, 0.01, 1,]
+#                  For debugging
 #                1, 1, 1, 1,
 #                1, 1, 1, 1]
+      target: [0, 0, 0,
+               0, 0, 0,
+               0, 0, 0, 0, 0,
+               0, 0, 0, 0, 0]
     # TODO: Add support for terminal costs
 constraint_params:
   constraint_list: ["constraints"]

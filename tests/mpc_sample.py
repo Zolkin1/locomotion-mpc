@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import pinocchio as pin
+
 from locomotion_mpc.LocomotionMPC import LocomotionMPC, create_mpc_from_yaml
 from locomotion_mpc.utils import plot_pendulum
 
@@ -27,25 +29,31 @@ yaml_path = "../configurations/test_mpc.yaml"
 
 # make an instance
 mpc = create_mpc_from_yaml(yaml_path)
+robot_model = mpc.get_robot_model()
 
-q = np.zeros((2,))
-v = np.zeros((2,))
+q = pin.neutral(robot_model.pin_model)
+v = np.zeros((robot_model.nv,))
 
 [status, traj] = mpc.solve_ocp(q, v)
 
 if status != 0 and status != 2:
     raise Exception(f'acados returned status {status}.')
 
-plot_pend_traj(traj)
+# plot_pend_traj(traj)
 
 # Update the targets
-qdes = np.zeros((2,))
-qdes[0] = 2
+qdes = pin.neutral(robot_model.pin_model)
+# qdes[0] = 2
 for i in range(mpc.settings.N):
     mpc.update_cost_targets(i, q_des=qdes)
 
 # Change IC
-q[0] = -1
+# q[0] = -1
 
 [status, traj] = mpc.solve_ocp(q, v)
-plot_pend_traj(traj)
+traj.plot()
+
+robot_model.create_visualizer()
+robot_model.viz_trajectory(traj)
+
+# plot_pend_traj(traj)

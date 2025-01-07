@@ -1,5 +1,6 @@
 import numpy as np
 import yaml
+import time
 import pinocchio
 
 import pinocchio.casadi as cpin
@@ -22,6 +23,7 @@ class RobotSettings:
         with open(yaml_path, 'r') as file:
             yaml_settings = yaml.safe_load(file)
             self.urdf_path = yaml_settings["model_params"]["urdf_path"]
+            self.mesh_path = yaml_settings["model_params"]["mesh_path"]
             self.foot_frames = yaml_settings["model_params"]["foot_frames"]
             if yaml_settings["model_params"].get("locked_joints"):
                 self.locked_joints = yaml_settings["model_params"]["locked_joints"]
@@ -125,28 +127,21 @@ class RobotModel:
         base_joint.addJoint(pinocchio.JointModelSphericalZYX())
 
         # Create the full model
-        full_pin_model = pinocchio.buildModelFromUrdf(settings.urdf_path, base_joint)
+        self.full_pin_model, self.collision_model, self.viz_model = pinocchio.buildModelsFromUrdf(settings.urdf_path, settings.mesh_path, base_joint)
 
-        self.ntau = 1
-        self.nf = FORCE_SIZE
-        self.nq = 2
-        self.nv = 2
-        self.nfeet = 1
         # Lock certain joints
-        q_default = pinocchio.neutral(full_pin_model)
+        q_default = pinocchio.neutral(self.full_pin_model)
         locked_joint_ids = []
         for i in range(len(self._settings.locked_joints)):
             joint = self._settings.locked_joints[i]
-            if full_pin_model.existJointName(joint):
-                locked_joint_ids.append(full_pin_model.getJointId(joint))
-                q_default[full_pin_model.getJointId(joint)] = self._settings.locked_defaults[i]
+            if self.full_pin_model.existJointName(joint):
+                locked_joint_ids.append(self.full_pin_model.getJointId(joint))
+                q_default[self.full_pin_model.getJointId(joint)] = self._settings.locked_defaults[i]
 
         # Create pinocchio models
-        self.pin_model, self.collision_model, self.viz_model = pinocchio.buildReducedModel(full_pin_model, locked_joint_ids, q_default)
+        self.pin_model = pinocchio.buildReducedModel(self.full_pin_model, locked_joint_ids, q_default)
         self.cpin_model = cpin.Model(self.pin_model)
 
-        self.u_full_order = SX.sym("u", self.ntau)
-        self.F_full_order = SX.sym("F", self.nf)
         # Create the data
         self.pin_data = self.pin_model.createData()
         self.cpin_data = self.cpin_model.createData()
@@ -159,67 +154,105 @@ class RobotModel:
         self.nq = self.pin_model.nq
         self.nv = self.pin_model.nv
         self.nf = FORCE_SIZE * len(self._settings.foot_frames)
-        self.full_order_torques = self.pin_model.nv - FLOATING_VEL   # Fully actuated except for floating base
+        self.ntau = self.pin_model.nv - FLOATING_VEL   # Fully actuated except for floating base
+
+        self.u_full_order = SX.sym("u", self.ntau)
+        self.F_full_order = SX.sym("F", self.nf)
 
         self.nu = self.nf + self.ntau
-        self.nu = self.nf + self.full_order_torques
+        self.nu = self.nf + self.ntau
         self.nfeet = len(settings.foot_frames)
 
         q = SX.sym("q", self.nq)
         v = SX.sym("v", self.nv)
-        u = SX.sym("u", self.full_order_torques)
+        a = SX.sym("a", self.nv)
+        u = SX.sym("u", self.ntau)
         F = SX.sym("F", self.nf)
 
         self.u_full_order = u
         self.q_full_order = q
         self.v_full_order = v
+        self.a_full_order = a
         self.F_full_order = F
         # ------------------------------- #
         # ------------------------------- #
         # ------------------------------- #
 
         self.create_forward_dynamics()
+        self.create_inverse_dynamics()
         self.create_integration_dynamics()
 
 
-    def create_full_order_acados_model(self, model: AcadosModel):
+    def create_full_order_acados_model(self, model: AcadosModel, forward_dynamics: bool):
         """
         Create an Acados model using the full order ROM.
         Note that the model is modified in place.
         """
-        # States
-        x = vertcat(self.q_full_order, self.v_full_order)
+        if forward_dynamics:
+            # States
+            x = vertcat(self.q_full_order, self.v_full_order)
 
-        # Inputs
-        u = vertcat(self.u_full_order, self.F_full_order)
+            # Inputs
+            u = vertcat(self.u_full_order, self.F_full_order)
 
-        # xdot
-        xdot = SX.sym("xdot_fo", self.pin_model.nq + self.pin_model.nv)
+            # xdot
+            xdot = SX.sym("xdot_fo", self.pin_model.nq + self.pin_model.nv)
 
-        # Dynamics function
-        # TODO: Check
-        f_expl = vertcat(self.vel_dyn_func(self.q_full_order, self.v_full_order),
-                         self.fd_func(self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order))
+            # Dynamics function
+            # TODO: Check
+            f_expl = vertcat(self.vel_dyn_func(self.q_full_order, self.v_full_order),
+                             self.fd_func(self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order))
 
-        f_impl = xdot - f_expl
+            f_impl = xdot - f_expl
 
-        print(self.q_full_order)
-        print(self.v_full_order)
-        print(self.F_full_order)
-        print(self.u_full_order)
-        print(self.vel_dyn_func(self.q_full_order, self.v_full_order))
-        # print(self.fd_func(self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order))
+            print(self.q_full_order)
+            print(self.v_full_order)
+            print(self.F_full_order)
+            print(self.u_full_order)
+            print(self.vel_dyn_func(self.q_full_order, self.v_full_order))
+            # print(self.fd_func(self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order))
 
-        # Assign to model
-        model.f_impl_expr = f_impl
-        model.f_expl_expr = f_expl
-        model.x = x
-        model.xdot = xdot
-        model.u = u
-        model.name = self.pin_model.name + "_full_order"
+            # Assign to model
+            # model.f_impl_expr = f_impl # Faster to compile than explicit
+            model.f_expl_expr = f_expl
+            model.x = x
+            model.xdot = xdot
+            model.u = u
+            model.name = self.pin_model.name + "_full_order"
+        else:
+            # States
+            x = vertcat(self.q_full_order, self.v_full_order)
 
-        # Parameters for contact schedule
-        model.p = SX.sym("p", self.nfeet)
+            # Inputs
+            u = vertcat(self.u_full_order, self.F_full_order)
+
+            # xdot
+            v_copy = SX.sym("v_copy", self.nv)
+            xdot = vertcat(v_copy, self.a_full_order) #SX.sym("xdot_fo", self.pin_model.nq + self.pin_model.nv)
+
+            # Dynamics function
+            # TODO: Check
+            f_impl = vertcat(self.vel_dyn_func(self.q_full_order, self.v_full_order),
+                             self.id_func(self.q_full_order, self.v_full_order, self.a_full_order, self.F_full_order))
+
+            floating_base_torque = SX.zeros(FLOATING_VEL, 1)
+            tau = casadi.vertcat(floating_base_torque, self.u_full_order)
+
+            f = casadi.vertcat(self.v_full_order,  tau) - f_impl
+
+            print(self.q_full_order)
+            print(self.v_full_order)
+            print(self.F_full_order)
+            print(self.u_full_order)
+            print(self.vel_dyn_func(self.q_full_order, self.v_full_order))
+            # print(self.fd_func(self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order))
+
+            # Assign to model
+            model.f_impl_expr = f_impl  # Faster to compile than explicit
+            model.x = x
+            model.xdot = xdot
+            model.u = u
+            model.name = self.pin_model.name + "_full_order"
 
     def create_centroidal_acados_model(self, model: AcadosModel):
         """
@@ -268,6 +301,27 @@ class RobotModel:
         # Make casadi function
         self.fd_func = casadi.Function("acc", [self.q_full_order, self.v_full_order, self.u_full_order, self.F_full_order],
                                        [a], ["q", "v", "u", "F"], ["a"])
+
+    def create_inverse_dynamics(self):
+        """
+        Create a casadi function giving the inverse dynamics.
+        :return:
+        """
+
+        f_ext = self.get_local_external_forces(self.q_full_order, self.F_full_order)
+
+        # TODO: Confirm this claim:
+        # From looking at Featherstone, I believe that v is the angular velocities, not the euler angle derivatives
+        # Forward dynamics
+        tau = cpin.rnea(self.cpin_model, self.cpin_data, self.q_full_order, self.v_full_order, self.a_full_order, f_ext)
+
+        # tau_simplified = casadi.simplify(tau)
+
+        # Make casadi function
+        self.id_func = casadi.Function("tau",
+                                       [self.q_full_order, self.v_full_order, self.a_full_order, self.F_full_order],
+                                       [tau], ["q", "v", "a", "F"], ["u"])
+
 
     def create_integration_dynamics(self):
         """Create a casadi function giving the integration dynamics."""
@@ -332,27 +386,52 @@ class RobotModel:
                 raise ValueError("Frame " + str(frame) + " is not found in the URDF!")
 
     def create_visualizer(self):
-        self.viz = MeshcatVisualizer(self.pin_model, self.collision_model, self.viz_model)
+        self.viz = MeshcatVisualizer(self.full_pin_model, self.collision_model, self.viz_model)
         self.viz.initViewer()
 
         self.viz.loadViewerModel()
 
-        q = pinocchio.neutral(self.pin_model)
+        q = pinocchio.neutral(self.full_pin_model)
         self.viz.display(q)
-        self.viz.display_visuals(True)
+        # self.viz.display_visuals(True)
+
+        input("Press Enter to continue...")
 
     def viz_config(self, q) -> None:
         self.viz.display(q)
 
     def viz_trajectory(self, trajectory) -> None:
-        for t in trajectory.time_traj:
-            self.viz.display(t)
+        Ntimes = 100
+        while True:
+            for t in np.linspace(0, trajectory.time_traj[-1], Ntimes):
+                q_traj = trajectory.get_config(t)
+                q_full = self.get_full_q(q_traj)
+                self.viz.display(q_full)
+                time.sleep(trajectory.time_traj[-1]/Ntimes)
+
+    def get_full_q(self, q):
+        """Convert a q with locked joints to a full order q"""
+        q_default = pinocchio.neutral(self.full_pin_model)
+        locked_joint_ids = []
+        for i in range(len(self._settings.locked_joints)):
+            joint = self._settings.locked_joints[i]
+            if self.full_pin_model.existJointName(joint):
+                locked_joint_ids.append(self.full_pin_model.getJointId(joint))
+                q_default[self.full_pin_model.getJointId(joint)] = self._settings.locked_defaults[i]
+
+        small_j_idx = 0
+        for joint in self.pin_model.names:
+            full_j_idx = self.full_pin_model.getJointId(joint)
+            q_default[full_j_idx] = q[small_j_idx]
+            small_j_idx += 1
+
+        return q_default
 
     def print(self):
         print("Robot Model:")
         print(f"\tnq: {self.pin_model.nq}")
         print(f"\tnv: {self.pin_model.nv}")
-        print(f"\ttorques: {self.full_order_torques}")
+        print(f"\ttorques: {self.ntau}")
         print(f"\tnf: {self.nf}")
         print(f"\tfoot frames: {self._settings.foot_frames}")
 

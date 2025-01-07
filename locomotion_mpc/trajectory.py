@@ -37,8 +37,8 @@ class Trajectory:
         upper_idx = self.get_upper_idx(time)
         t1 = self.time_traj[upper_idx - 1]
         t2 = self.time_traj[upper_idx]
-        return interpolate(t1, t2, self.v_trajectory[upper_idx-1, :],
-                           self.v_trajectory[upper_idx, :], time)
+        return interpolate(t1, t2, self.tau_trajectory[upper_idx-1, :],
+                           self.tau_trajectory[upper_idx, :], time)
 
     def get_force(self, time: float, frame_idx: int) -> np.array:
         upper_idx = self.get_upper_idx(time)
@@ -59,12 +59,6 @@ class Trajectory:
 
         return i
 
-    # def plot(self):
-        # 3 subplots for the configuration in general: position, orientation, joints
-        # Same 3 subplots for the velocities
-        # Each grouping of 3 force scalars gets a subplot
-        # Torques are all on the same subplot
-
     def print(self):
         print(f"q: {self.q_trajectory}")
         print(f"v: {self.v_trajectory}")
@@ -73,19 +67,60 @@ class Trajectory:
         print(f"times: {self.time_traj}")
 
     def plot(self):
+        # 3 subplots for the configuration in general: position, orientation, joints
+        # Same 3 subplots for the velocities
+        # Each grouping of 3 force scalars gets a subplot
+        # Torques are all on the same subplot
+
         latexify_plot()
 
-        # plt.subplot(self. + 1, 1, 1)
-        line, = plt.step(self.time_traj, self.tau_trajectory) #np.append([self.tau_trajectory[0, :]], self.tau_trajectory))
-        # if X_true_label is not None:
-        #     line.set_label(X_true_label)
-        # else:
-        #     line.set_color('r')
-        # if title is not None:
-        #     plt.title(title)
+        # ---- Inputs ----- #
+        plt.subplot(5, 1, 1)
+        for i in range(self.tau_trajectory.shape[1]):
+            u_plot_traj = self.tau_trajectory[:,i]
+            line, = plt.step(self.time_traj, np.append(self.tau_trajectory[0,i], u_plot_traj))
         plt.ylabel('$u$')
         plt.xlabel('$t$')
-        # plt.hlines(u_max, t[0], t[-1], linestyles='dashed', alpha=0.7)
-        # plt.hlines(-u_max, t[0], t[-1], linestyles='dashed', alpha=0.7)
-        # plt.ylim([-1.2 * u_max, 1.2 * u_max])
         plt.grid()
+
+        # ----- Joint Angles ----- #
+        plt.subplot(5, 1, 2)
+        for i in range(6, self.q_trajectory.shape[1]):
+            q_plot_traj = self.q_trajectory[:,i]
+            line, = plt.plot(self.time_traj, q_plot_traj)
+
+        plt.ylabel('$q$ joints')
+        plt.xlabel('$t$')
+        plt.grid()
+
+        # ----- Joint Velocities ---- #
+        plt.subplot(5, 1, 3)
+        for i in range(6, self.v_trajectory.shape[1]):
+            v_plot_traj = self.v_trajectory[:,i]
+            line, = plt.plot(self.time_traj, v_plot_traj)
+
+        plt.ylabel('$v$ joints')
+        plt.xlabel('$t$')
+        plt.grid()
+
+        # ----- Floating Base Position ----- #
+        plt.subplot(5, 1, 4)
+        for i in range(6):
+            q_plot_traj = self.q_trajectory[:,i]
+            line, = plt.plot(self.time_traj, q_plot_traj)
+
+        plt.ylabel('$q$ base')
+        plt.xlabel('$t$')
+        plt.grid()
+
+        # ----- Floating Base Velocities ---- #
+        plt.subplot(5, 1, 5)
+        for i in range(6):
+            v_plot_traj = self.v_trajectory[:,i]
+            line, = plt.plot(self.time_traj, v_plot_traj)
+
+        plt.ylabel('$v$ base')
+        plt.xlabel('$t$')
+        plt.grid()
+
+        plt.show()

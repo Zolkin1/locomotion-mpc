@@ -78,14 +78,15 @@ class LocomotionMPC:
         # full_order.solver_options.qp_solver = "PARTIAL_CONDENSING_OSQP" #"FULL_CONDENSING_DAQP" "PARTIAL_CONDENSING_QPDUNES" "FULL_CONDENSING_QPOASES" #"PARTIAL_CONDENSING_OSQP"
         full_order.solver_options.nlp_solver_type = "SQP" #"SQP" #"SQP_RTI"
         full_order.solver_options.qp_solver_iter_max = self.settings.max_iter_qp
+        full_order.solver_options.integrator_type = self.settings.integrator_type
 
         # Default parameters
-        full_order.parameter_values = np.zeros((robot_model.nfeet,))
+        full_order.parameter_values = np.zeros((self.psize,))
 
         # Create the solver
         # self._ocp_solver = AcadosOcpSolver(self._ocp)
         start_time = time.time()
-        self.ocp_solver = AcadosOcpSolver(full_order, build=False, generate=False)
+        self.ocp_solver = AcadosOcpSolver(full_order, build=True, generate=True)
         end_time = time.time()
 
         time_elapsed = end_time - start_time
@@ -132,6 +133,9 @@ class LocomotionMPC:
         x0[:self._robot_model.nq] = q
         x0[-self._robot_model.nv:] = v
 
+        print(q)
+        print(v)
+
         self.ocp_solver.set(0, "lbx", x0)
         self.ocp_solver.set(0, "ubx", x0)
 
@@ -176,7 +180,7 @@ class LocomotionMPC:
         ocp.model.p = SX.sym("p", self.psize)
 
         # Dynamics
-        self._robot_model.create_full_order_acados_model(ocp.model)
+        self._robot_model.create_full_order_acados_model(ocp.model, True)
 
         # Cost
         ocp.cost = self._cost.create_full_order_acados_cost(ocp.model)
